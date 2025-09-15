@@ -766,27 +766,6 @@
   }
 }
 
-import { ZeaTooltip } from './ZeaTooltip.js';
- class ZTHeaderTooltip {
-  constructor({ headerName = '', tooltipText = '' }) {
-    const el = document.createElement('div');
-    el.className = 'flex gap-1';
-    const headerText = document.createElement('span');
-    headerText.textContent = headerName;
-    const headerIcon = new ZeaTooltip({
-      child: /*html*/ `
-        <div class="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-300 cursor-pointer">
-          <i class="fas fa-info text-[10px]"></i>
-        </div>`,
-      text: tooltipText,
-    });
-    el.className = 'flex gap-1';
-    el.appendChild(headerText);
-    el.appendChild(headerIcon);
-    return el;
-  }
-}
-
  class ZTInput {
   constructor({ row, field, placeholder = '', className = '', textAlign = 'left', valueFormatter, valueParser, onChange, disabled = false }) {
     const input = document.createElement('input');
