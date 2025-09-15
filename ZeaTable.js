@@ -1,3 +1,4 @@
+
 export class ZeaTable {
   constructor({ containerId = null, container }) {
     if (containerId) {
@@ -23,11 +24,16 @@ export class ZeaTable {
     this.loadMoreCallback = null;
 
     this.isLoading = false;
-    this.autoAddRow = false; // default off
+    this.autoAddRow = false;
+    this.autoAddRowAppend = 'end';
+    this.autoWidth = true;
+    this.columnHasChildren = false;
   }
 
   setColumnDefs(columnDefs = []) {
     this.columnDefs = columnDefs;
+    this.flatCols = !this.columnHasChildren ? this.columnDefs : this._getFlattenedColumns();
+      
   }
 
   setRowData(rowData = []) {
@@ -65,15 +71,11 @@ export class ZeaTable {
         }
       });
 
-      for (let colIndex = 0; colIndex < this.columnDefs.length; colIndex++) {
-        const col = this.columnDefs[colIndex];
+      for (let colIndex = 0; colIndex < this.flatCols.length; colIndex++) {
+        const col = this.flatCols[colIndex];
         let value = row[col.field];
         const td = document.createElement('td');
-        td.className = 'px-3 py-1 break-words';
-
-        if (col.width) {
-          td.style.width = typeof col.width === "number" ? `${col.width}px` : col.width;
-        }
+        td.className = 'px-1 py-1 break-words';
 
         // text alignment
         if (col.textAlign) {
@@ -83,8 +85,6 @@ export class ZeaTable {
         } else {
           td.classList.add('text-left');
         }
-
-
 
         let colSpan = 1;
         if (typeof col.colSpan === "function") {
@@ -116,48 +116,66 @@ export class ZeaTable {
     });
   }
 
-  addRowData(newRows = []) {
+  _getFlattenedColumns() {
+    let flatCols = [];
+    this.columnDefs.forEach(col => {
+      if (col.children && col.children.length > 0) {
+        flatCols = flatCols.concat(col.children);
+      } else {
+        flatCols.push(col);
+      }
+    });
+    return flatCols;
+  }
+
+  addRowData(newRows = [], options = { position: "end" }) {
     if (!Array.isArray(newRows) || newRows.length === 0) return;
 
     if (!this.tbody || !this.rowData || this.rowData.length === 0) {
-      console.log('called2222');
       this.setRowData(newRows);
       return;
     }
 
-
-    // Append new rows to internal rowData
-    this.rowData = this.rowData.concat(newRows);
-
-    const startIndex = this.rowData.length - newRows.length;
+    if (options.position === "begin") {
+      // Prepend new rows to internal rowData
+      this.rowData = newRows.concat(this.rowData);
+    } else {
+      // Append new rows to internal rowData
+      this.rowData = this.rowData.concat(newRows);
+    }
 
     newRows.forEach((row, rowIndex) => {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-gray-50 hover:text-black cursor-pointer transition border-b';
 
-      const globalRowIndex = startIndex + rowIndex;
+      // Correct index based on position
+      let globalRowIndex;
+      if (options.position === "begin") {
+        globalRowIndex = rowIndex; // start at 0 for new first rows
+      } else {
+        globalRowIndex = this.rowData.length - newRows.length + rowIndex;
+      }
 
+      // Custom row color
       if (this.rowColorCallback) {
         const colorValue = this.rowColorCallback(row, globalRowIndex);
         if (typeof colorValue === 'string') tr.classList.add(...colorValue.split(" "));
         else if (typeof colorValue === 'object') Object.assign(tr.style, colorValue);
       }
 
+      // Click event
       tr.addEventListener('click', () => {
         if (this.onRowClick) {
           this.onRowClick({ data: row, index: globalRowIndex, tr });
         }
       });
 
-      for (let colIndex = 0; colIndex < this.columnDefs.length; colIndex++) {
-        const col = this.columnDefs[colIndex];
+      // Render cells
+      for (let colIndex = 0; colIndex < this.flatCols.length; colIndex++) {
+        const col = this.flatCols[colIndex] ;
         let value = row[col.field];
         const td = document.createElement('td');
-        td.className = 'px-3 py-1';
-
-        if (col.width) {
-          td.style.width = typeof col.width === "number" ? `${col.width}px` : col.width;
-        }
+        td.className = 'px-1 py-1';
 
         // text alignment
         if (col.textAlign) {
@@ -167,7 +185,6 @@ export class ZeaTable {
         } else {
           td.classList.add('text-left');
         }
-
 
         // colSpan
         let colSpan = 1;
@@ -189,7 +206,12 @@ export class ZeaTable {
         if (colSpan > 1) colIndex += (colSpan - 1);
       }
 
-      this.tbody.appendChild(tr);
+      // Insert row in correct position
+      if (options.position === "begin" && this.tbody.firstChild) {
+        this.tbody.insertBefore(tr, this.tbody.firstChild);
+      } else {
+        this.tbody.appendChild(tr);
+      }
     });
   }
 
@@ -218,7 +240,7 @@ export class ZeaTable {
     // create loading shimmer row
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = this.columnDefs.length || 1;
+    td.colSpan = this.flatCols.length || 1;
     td.className = "py-3";
 
     td.innerHTML = `
@@ -420,82 +442,142 @@ export class ZeaTable {
     if (typeof callback === 'function') this.onPageChange = callback;
   }
 
-  setAutoAddRow(flag = true) {
+  setAutoAddRow(flag = true, append = 'end') {
     this.autoAddRow = flag;
+    this.autoAddRowAppend = append;
   }
 
-  handleAutoAddRow(row) {
+  setAutoWidth(flag = true) {
+    this.autoWidth = flag;
+  }
+
+  handleAutoAddRow(row, append = 'end') {
     if (!this.autoAddRow) return;
     if (!this.validateRequiredCol(row)) {
       console.log(this.validateRequiredCol(row));
       console.log(row);
       return;
     }
-    const lastRow = this.rowData[this.rowData.length - 1];
-    if (row !== lastRow) return; // only trigger for last row
-
+    const appendedRow = this.rowData[this.autoAddRowAppend == 'end' ? this.rowData.length - 1 : 0];
+    if (row !== appendedRow) return;
     // Check if any cell in the last row has a value
-    const isFilled = Object.values(lastRow).some(val => val !== '' && val != null);
+    const isFilled = Object.values(appendedRow).some(val => val !== '' && val != null);
     if (isFilled) {
       const newRow = {};
       this.columnDefs.forEach(col => newRow[col.field] = '');
-      this.addRowData([newRow]);
+      this.addRowData([newRow], { position: 'begin' });
     }
   }
 
   render() {
     this.container.innerHTML = '';
 
-    // Wrapper: vertical + horizontal scroll
     const wrapper = document.createElement('div');
-    wrapper.className = 'h-full overflow-auto'; // both scrolls
+    wrapper.className = 'h-full overflow-auto';
 
-    // One single table (no split!)
     this.table = document.createElement('table');
-    this.table.className = 'w-full text-xs border-collapse';
-    this.table.style.tableLayout = 'fixed';
-    
-    // Thead with sticky header
+    this.table.className = 'text-xs border-collapse';
+
+    if (this.autoWidth) {
+      this.table.classList.add('min-w-full');
+    } else {
+      this.table.style.tableLayout = 'fixed';
+      this.table.style.width = 'max-content';
+      const colgroup = document.createElement('colgroup');
+      this.columnDefs.forEach(col => {
+        const colEl = document.createElement('col');
+        if (col.width) {
+          colEl.style.width = typeof col.width === 'number' ? `${col.width}px` : col.width;
+        }
+        colgroup.appendChild(colEl);
+      });
+      this.table.appendChild(colgroup);
+    }
+
+    // === HEADER ===
     const thead = document.createElement('thead');
     thead.className = 'text-gray-500 bg-gray-50';
-    const headerRow = document.createElement('tr');
-    headerRow.className = 'border-b';
 
-    this.columnDefs.forEach(col => {
-      const th = document.createElement('th');
-      th.className = 'px-3 py-1 break-words text-left border-b bg-gray-50 sticky top-0'; // 👈 sticky here
-      if (col.textAlign === 'center') th.classList.add('text-center');
-      else if (col.textAlign === 'right') th.classList.add('text-right');
-      if (col.width) {
-        th.style.width = typeof col.width === "number" ? `${col.width}px` : col.width;
-      }
-      th.textContent = col.headerName || '';
+    if (!this.columnHasChildren) {
+      const headerRow = document.createElement('tr');
+      headerRow.className = 'border-b';
+      this.columnDefs.forEach(col => {
+        const th = this._createTh(col.headerName, col.textAlign);
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+    } else {
+      const parentRow = document.createElement('tr');
+      parentRow.className = 'border-b';
 
-      headerRow.appendChild(th);
-    });
+      const childRow = document.createElement('tr');
+      childRow.className = 'border-b';
 
-    thead.appendChild(headerRow);
+      this.columnDefs.forEach(col => {
+        if (col.children && col.children.length > 0) {
+          const th = this._createTh(col.headerName, col.textAlign);
+          th.colSpan = col.children.length;
+          parentRow.appendChild(th);
 
+          col.children.forEach(childCol => {
+            const childTh = this._createTh(childCol.headerName, childCol.textAlign);
+            childRow.appendChild(childTh);
+          });
+        } else {
+          const th = this._createTh(col.headerName, col.textAlign);
+          th.rowSpan = 2;
+          parentRow.appendChild(th);
+        }
+      });
+
+      thead.appendChild(parentRow);
+      thead.appendChild(childRow);
+    }
+
+    // === BODY ===
     this.tbody = document.createElement('tbody');
+
     this.table.appendChild(thead);
     this.table.appendChild(this.tbody);
-
     wrapper.appendChild(this.table);
     this.container.appendChild(wrapper);
 
-    // Render rows
     this.setRowData(this.rowData);
+  }
+
+  _createTh(headerName, textAlign) {
+    const th = document.createElement('th');
+    th.className = 'px-1 py-1 break-words text-left border-b bg-gray-50 sticky top-0';
+    if (textAlign === 'center') th.classList.add('text-center');
+    else if (textAlign === 'right') th.classList.add('text-right');
+
+    if (typeof headerName === 'string') {
+      th.innerHTML = headerName || '';
+    } else if (headerName) {
+      th.appendChild(headerName);
+    }
+    return th;
   }
 
   /**
  * Delete a row from the table
- * @param {Object} row - row object to delete
+ * @param {Object|string|number} target - row object or key (e.g., PART_ID)
+ * @param {string} [keyField="id"] - field name to match when target is a key
  */
-  deleteRowData(row) {
-    if (!row) return;
+  deleteRowData(target, keyField = "id") {
+    console.log('called');
+    if (!target) return;
 
-    // Find index
-    const rowIndex = this.rowData.findIndex(r => r === row);
+    let rowIndex = -1;
+
+    if (typeof target === "object") {
+      // Case: row object
+      rowIndex = this.rowData.findIndex(r => r === target);
+    } else {
+      // Case: key (string/number)
+      rowIndex = this.rowData.findIndex(r => r[keyField] === target);
+    }
+
     if (rowIndex === -1) return;
 
     // Remove from rowData
@@ -522,6 +604,7 @@ export class ZeaTable {
     this.requiredColumns = cols;
   }
 
+
   validateRequiredCol(row = null) {
     if (!Array.isArray(this.requiredColumns) || this.requiredColumns.length === 0) return true;
     if (row) {
@@ -543,15 +626,15 @@ export class ZeaTable {
 
 
 export class ZTActionBtn {
-  constructor({ className, action, value, row, title }) {
+  constructor({ className, action, title }) {
     const icon = document.createElement("i");
     icon.className = className;
-    if(title){
+    if (title) {
       icon.title = title;
     }
     icon.addEventListener('click', (e) => {
       e.stopPropagation();
-      action(e, value, row);
+      action(e);
     });
     return icon;
   }
@@ -576,6 +659,7 @@ export class ZTCheckBox {
   constructor({ row, field, onChange }) {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
+    checkbox.className = 'accent-blue-500 focus:ring-blue-500 border-gray-300 rounded';
     checkbox.checked = !!row[field];
 
     checkbox.addEventListener('click', (e) => {
@@ -585,7 +669,7 @@ export class ZTCheckBox {
     checkbox.addEventListener('change', (e) => {
       const checked = e.target.checked;
       row[field] = checked;
-      if (typeof onChange === 'function') onChange(row, checked);
+      if (typeof onChange === 'function') onChange(checked);
     });
 
     return checkbox;
@@ -593,9 +677,9 @@ export class ZTCheckBox {
 }
 
 export class ZTPassword {
-  constructor({value, row, field, placeholder = '', onChange, disabled = false }) {
+  constructor({ value, row, field, placeholder = '', onChange, disabled = false }) {
     const div = document.createElement('div');
-    div.className = 'flex items-center w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-1 py-1 bg-white';
+    div.className = 'flex items-center w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-3 py-1 bg-white';
     const input = document.createElement('input');
     input.type = 'password';
     input.className = 'disabled:bg-transparent disabled:cursor-not-allowed w-full flex-1 text-xs focus:outline-none';
@@ -683,15 +767,44 @@ export class ZTDate {
   }
 }
 
-
+import { ZeaTooltip } from './ZeaTooltip.js';
+export class ZTHeaderTooltip {
+  constructor({ headerName = '', tooltipText = '' }) {
+    const el = document.createElement('div');
+    el.className = 'flex gap-1';
+    const headerText = document.createElement('span');
+    headerText.textContent = headerName;
+    const headerIcon = new ZeaTooltip({
+      child: /*html*/ `
+        <div class="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-300 cursor-pointer">
+          <i class="fas fa-info text-[10px]"></i>
+        </div>`,
+      text: tooltipText,
+    });
+    el.className = 'flex gap-1';
+    el.appendChild(headerText);
+    el.appendChild(headerIcon);
+    return el;
+  }
+}
 
 export class ZTInput {
-  constructor({ row, field, placeholder = '', valueFormatter, valueParser, onChange, disabled = false }) {
+  constructor({ row, field, placeholder = '', className = '', textAlign = 'left', valueFormatter, valueParser, onChange, disabled = false }) {
     const input = document.createElement('input');
     input.placeholder = placeholder;
-    input.disabled = !!disabled; 
-    input.className = 'w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-3 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
-
+    input.disabled = !!disabled;
+    input.className = `w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-1 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary ${className}`;
+    switch (textAlign) {
+      case 'left':
+        input.style.textAlign = 'left';
+        break;
+      case 'right':
+        input.style.textAlign = 'right';
+        break;
+      case 'center':
+        input.style.textAlign = 'center';
+        break;
+    }
     if (typeof valueFormatter === 'function') {
       input.value = valueFormatter(row[field]);
       input.addEventListener('input', (event) => {
@@ -704,13 +817,37 @@ export class ZTInput {
     input.onchange = (event) => {
       const newValue = typeof valueParser === 'function' ? valueParser(event.target.value) : event.target.value;
       row[field] = newValue;
-      if (typeof onChange === 'function') onChange(row, field, newValue);
+      if (typeof onChange === 'function') onChange(newValue);
     };
 
     return input;
   }
 }
 
+export class ZTTextArea {
+  constructor({ row, field, placeholder = '', className = '', textAlign = 'left', valueFormatter, valueParser, onChange, disabled = false }) {
+    const input = document.createElement('textarea');
+    input.placeholder = placeholder;
+    input.disabled = !!disabled;
+    input.className = `w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-1 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary ${className}`;
+    if (typeof valueFormatter === 'function') {
+      input.value = valueFormatter(row[field]);
+      input.addEventListener('input', (event) => {
+        input.value = valueFormatter(event.target.value);
+      });
+    } else {
+      input.value = row[field] ?? '';
+    }
+
+    input.onchange = (event) => {
+      const newValue = typeof valueParser === 'function' ? valueParser(event.target.value) : event.target.value;
+      row[field] = newValue;
+      if (typeof onChange === 'function') onChange(newValue);
+    };
+
+    return input;
+  }
+}
 
 export class ZTSelect {
   constructor({ row, field, options = [], onChange, placeholder }) {
@@ -722,8 +859,8 @@ export class ZTSelect {
       placeholderOption.value = '';
       placeholderOption.textContent = placeholder;
       placeholderOption.disabled = true;
-      placeholderOption.selected = !row[field]; 
-      placeholderOption.hidden = true; 
+      placeholderOption.selected = !row[field];
+      placeholderOption.hidden = true;
       select.appendChild(placeholderOption);
     }
 
