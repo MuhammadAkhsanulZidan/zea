@@ -1,5 +1,5 @@
 
-export class ZeaTable {
+ class ZeaTable {
   constructor({ containerId = null, container }) {
     if (containerId) {
       this.container = document.getElementById(containerId);
@@ -625,7 +625,7 @@ export class ZeaTable {
 }
 
 
-export class ZTActionBtn {
+ class ZTActionBtn {
   constructor({ className, action, title }) {
     const icon = document.createElement("i");
     icon.className = className;
@@ -640,7 +640,7 @@ export class ZTActionBtn {
   }
 }
 
-export class ZTCustomElement {
+ class ZTCustomElement {
   constructor({ element = null, onAttach }) {
     if (element) {
       this.element = element;
@@ -655,7 +655,7 @@ export class ZTCustomElement {
   }
 }
 
-export class ZTCheckBox {
+ class ZTCheckBox {
   constructor({ row, field, onChange }) {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -676,7 +676,7 @@ export class ZTCheckBox {
   }
 }
 
-export class ZTPassword {
+ class ZTPassword {
   constructor({ value, row, field, placeholder = '', onChange, disabled = false }) {
     const div = document.createElement('div');
     div.className = 'flex items-center w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-3 py-1 bg-white';
@@ -723,7 +723,7 @@ export class ZTPassword {
   }
 }
 
-export class ZTDate {
+ class ZTDate {
   constructor({ row, field, valueFormatter = 'DD/MM/YYYY', valueParser = 'YYYY-MM-DD', onChange }) {
     const input = document.createElement('input');
     input.type = 'text'; // Litepicker works with text input
@@ -768,7 +768,7 @@ export class ZTDate {
 }
 
 import { ZeaTooltip } from './ZeaTooltip.js';
-export class ZTHeaderTooltip {
+ class ZTHeaderTooltip {
   constructor({ headerName = '', tooltipText = '' }) {
     const el = document.createElement('div');
     el.className = 'flex gap-1';
@@ -788,7 +788,7 @@ export class ZTHeaderTooltip {
   }
 }
 
-export class ZTInput {
+ class ZTInput {
   constructor({ row, field, placeholder = '', className = '', textAlign = 'left', valueFormatter, valueParser, onChange, disabled = false }) {
     const input = document.createElement('input');
     input.placeholder = placeholder;
@@ -824,7 +824,7 @@ export class ZTInput {
   }
 }
 
-export class ZTTextArea {
+ class ZTTextArea {
   constructor({ row, field, placeholder = '', className = '', textAlign = 'left', valueFormatter, valueParser, onChange, disabled = false }) {
     const input = document.createElement('textarea');
     input.placeholder = placeholder;
@@ -849,7 +849,7 @@ export class ZTTextArea {
   }
 }
 
-export class ZTSelect {
+ class ZTSelect {
   constructor({ row, field, options = [], onChange, placeholder }) {
     const select = document.createElement('select');
     select.className = 'w-full border gap-2 border-gray-300 rounded focus-within:ring-2 focus-within:ring-primary px-3 py-1 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
