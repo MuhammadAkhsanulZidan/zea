@@ -1,4 +1,3 @@
-
  class ZeaTable {
   constructor({ containerId = null, container }) {
     if (containerId) {
