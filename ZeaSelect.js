@@ -1,4 +1,4 @@
-export class ZeaSelect {
+class ZeaSelect {
   constructor({
     selector,
     element,
